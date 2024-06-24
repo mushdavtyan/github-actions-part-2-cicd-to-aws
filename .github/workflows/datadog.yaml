@@ -1,0 +1,67 @@
+name: Test Datadog Dashboard Changes
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed]
+    paths:
+      - 'global/datadog/dashboard/universe/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.0.0
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: global/datadog/dashboard/universe
+
+      - name: Set Branch Name as Workspace
+        run: echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+
+      - name: Create and Select Workspace
+        run: |
+          terraform workspace new ${{ env.BRANCH_NAME }} || terraform workspace select ${{ env.BRANCH_NAME }}
+        working-directory: global/datadog/dashboard/universe
+
+      - name: Apply Terraform Configuration
+        run: terraform apply -auto-approve
+        working-directory: global/datadog/dashboard/universe
+
+  cleanup:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.0.0
+
+      - name: Set Branch Name as Workspace
+        run: echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+
+      - name: Select Workspace
+        run: terraform workspace select ${{ env.BRANCH_NAME }}
+        working-directory: global/datadog/dashboard/universe
+
+      - name: Destroy Terraform Resources
+        run: terraform destroy -auto-approve
+        working-directory: global/datadog/dashboard/universe
+
+      - name: Delete Workspace
+        run: |
+          terraform workspace select default
+          terraform workspace delete ${{ env.BRANCH_NAME }}
+        working-directory: global/datadog/dashboard/universe
