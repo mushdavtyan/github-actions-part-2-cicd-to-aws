@@ -5,3 +5,4 @@ resource "null_resource" "package_lambda" {
       pwd
     EOF
   }
+}
