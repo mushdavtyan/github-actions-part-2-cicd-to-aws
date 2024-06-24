@@ -3,6 +3,7 @@ resource "null_resource" "package_lambda" {
     command = <<-EOF
       ls -la
       pwd
+      uname -a
     EOF
   }
 }
