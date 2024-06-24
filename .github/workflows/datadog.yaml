@@ -1,4 +1,4 @@
-name: Test Datadog Dashboard Changes
+name: Test Datadog Universe Dashboard Changes
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
       - 'global/datadog/dashboard/universe/**'
 
 jobs:
-  test:
+  create-test-univers-dashboard:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
 
@@ -15,17 +15,51 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install aws-okta
+        run: |
+          curl -LO https://github.com/segmentio/aws-okta/releases/download/v0.27.0/aws-okta-linux-amd64
+          chmod +x aws-okta-linux-amd64
+          sudo mv aws-okta-linux-amd64 /usr/local/bin/aws-okta
+
+      - name: Configure aws-okta
+        run: |
+          mkdir -p ~/.aws
+          echo "[default]" > ~/.aws/config
+          echo "aws_access_key_id = fake" >> ~/.aws/config
+          echo "aws_secret_access_key = fake" >> ~/.aws/config
+
+      - name: Set Environment Variables
+        run: |
+          echo "OKTA_ORG=${{ secrets.OKTA_ORG }}" >> $GITHUB_ENV
+          echo "OKTA_AWS_APP_URL=${{ secrets.OKTA_AWS_APP_URL }}" >> $GITHUB_ENV
+          echo "OKTA_USERNAME=${{ secrets.OKTA_USERNAME }}" >> $GITHUB_ENV
+          echo "OKTA_PASSWORD=${{ secrets.OKTA_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: Log in to AWS using Okta SSO
+        run: |
+          export OKTA_ORG=${{ secrets.OKTA_ORG }}
+          export OKTA_AWS_APP_URL=${{ secrets.OKTA_AWS_APP_URL }}
+          export OKTA_USERNAME=${{ secrets.OKTA_USERNAME }}
+          export OKTA_PASSWORD=${{ secrets.OKTA_PASSWORD }}
+          aws-okta add -k
+          aws-okta exec admin-alexharo -- aws sts get-caller-identity
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
         with:
-          terraform_version: 1.0.0
+          terraform_version: 1.6.1
 
       - name: Terraform Init
         run: terraform init
         working-directory: global/datadog/dashboard/universe
 
       - name: Set Branch Name as Workspace
-        run: echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+        run: echo "BRANCH_NAME=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
 
       - name: Create and Select Workspace
         run: |
@@ -33,7 +67,7 @@ jobs:
         working-directory: global/datadog/dashboard/universe
 
       - name: Apply Terraform Configuration
-        run: terraform apply -auto-approve
+        run: terrafrom plan && terraform apply -auto-approve
         working-directory: global/datadog/dashboard/universe
 
   cleanup:
@@ -44,19 +78,59 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install aws-okta
+        run: |
+          curl -LO https://github.com/segmentio/aws-okta/releases/download/v0.27.0/aws-okta-linux-amd64
+          chmod +x aws-okta-linux-amd64
+          sudo mv aws-okta-linux-amd64 /usr/local/bin/aws-okta
+
+      - name: Configure aws-okta
+        run: |
+          mkdir -p ~/.aws
+          echo "[default]" > ~/.aws/config
+          echo "aws_access_key_id = fake" >> ~/.aws/config
+          echo "aws_secret_access_key = fake" >> ~/.aws/config
+
+      - name: Set Environment Variables
+        run: |
+          echo "OKTA_ORG=${{ secrets.OKTA_ORG }}" >> $GITHUB_ENV
+          echo "OKTA_AWS_APP_URL=${{ secrets.OKTA_AWS_APP_URL }}" >> $GITHUB_ENV
+          echo "OKTA_USERNAME=${{ secrets.OKTA_USERNAME }}" >> $GITHUB_ENV
+          echo "OKTA_PASSWORD=${{ secrets.OKTA_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: Log in to AWS using Okta SSO
+        run: |
+          export OKTA_ORG=${{ secrets.OKTA_ORG }}
+          export OKTA_AWS_APP_URL=${{ secrets.OKTA_AWS_APP_URL }}
+          export OKTA_USERNAME=${{ secrets.OKTA_USERNAME }}
+          export OKTA_PASSWORD=${{ secrets.OKTA_PASSWORD }}
+          aws-okta add -k
+          aws-okta exec admin-alexharo -- aws sts get-caller-identity
+
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
         with:
-          terraform_version: 1.0.0
+          terraform_version: 1.6.1
 
-      - name: Set Branch Name as Workspace
-        run: echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
-
-      - name: Select Workspace
-        run: terraform workspace select ${{ env.BRANCH_NAME }}
+      - name: Terraform Init
+        run: terraform init
         working-directory: global/datadog/dashboard/universe
 
-      - name: Destroy Terraform Resources
+      - name: Set Branch Name as Workspace
+        run: echo "BRANCH_NAME=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+
+      - name: Create and Select Workspace if Exists
+        run: |
+          terraform workspace select ${{ env.BRANCH_NAME }}
+        working-directory: global/datadog/dashboard/universe
+
+      - name: Destroy temporary Universe dashboard
         run: terraform destroy -auto-approve
         working-directory: global/datadog/dashboard/universe
 
