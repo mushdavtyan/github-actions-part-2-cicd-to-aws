@@ -8,7 +8,6 @@ terraform {
     }
   }
 
-
   # backend "s3" {
   #   bucket = "life360-main-terraform"
   #   key    = "tfstate/us-east-1-dev/terraform.tfstate"
