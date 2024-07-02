@@ -11,8 +11,6 @@ on:
 jobs:
   create-test-universe-dashboard:
     runs-on: ubuntu-latest
-    if: ${{ github.event.action != 'closed' && contains(github.event.pull_request.labels.*.name, 'preview') }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
