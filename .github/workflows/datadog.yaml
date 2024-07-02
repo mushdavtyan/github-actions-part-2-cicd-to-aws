@@ -5,49 +5,17 @@ on:
     types: [opened, synchronize, closed]
     paths:
       - 'global/datadog/dashboard/universe/**'
+  schedule:
+    - cron: '0 0 * * 0' # Runs weekly to clean up stale environments
 
 jobs:
-  create-test-univers-dashboard:
+  create-test-universe-dashboard:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    if: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' && contains(github.event.pull_request.labels.*.name, 'preview') }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
-
-      - name: Install aws-okta
-        run: |
-          curl -LO https://github.com/segmentio/aws-okta/releases/download/v0.27.0/aws-okta-linux-amd64
-          chmod +x aws-okta-linux-amd64
-          sudo mv aws-okta-linux-amd64 /usr/local/bin/aws-okta
-
-      - name: Configure aws-okta
-        run: |
-          mkdir -p ~/.aws
-          echo "[default]" > ~/.aws/config
-          echo "aws_access_key_id = fake" >> ~/.aws/config
-          echo "aws_secret_access_key = fake" >> ~/.aws/config
-
-      - name: Set Environment Variables
-        run: |
-          echo "OKTA_ORG=${{ secrets.OKTA_ORG }}" >> $GITHUB_ENV
-          echo "OKTA_AWS_APP_URL=${{ secrets.OKTA_AWS_APP_URL }}" >> $GITHUB_ENV
-          echo "OKTA_USERNAME=${{ secrets.OKTA_USERNAME }}" >> $GITHUB_ENV
-          echo "OKTA_PASSWORD=${{ secrets.OKTA_PASSWORD }}" >> $GITHUB_ENV
-
-      - name: Log in to AWS using Okta SSO
-        run: |
-          export OKTA_ORG=${{ secrets.OKTA_ORG }}
-          export OKTA_AWS_APP_URL=${{ secrets.OKTA_AWS_APP_URL }}
-          export OKTA_USERNAME=${{ secrets.OKTA_USERNAME }}
-          export OKTA_PASSWORD=${{ secrets.OKTA_PASSWORD }}
-          aws-okta add -k
-          aws-okta exec admin-alexharo -- aws sts get-caller-identity
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
@@ -67,51 +35,16 @@ jobs:
         working-directory: global/datadog/dashboard/universe
 
       - name: Apply Terraform Configuration
-        run: terrafrom plan && terraform apply -auto-approve
+        run: terraform plan && terraform apply -auto-approve
         working-directory: global/datadog/dashboard/universe
 
   cleanup:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
-
-      - name: Install aws-okta
-        run: |
-          curl -LO https://github.com/segmentio/aws-okta/releases/download/v0.27.0/aws-okta-linux-amd64
-          chmod +x aws-okta-linux-amd64
-          sudo mv aws-okta-linux-amd64 /usr/local/bin/aws-okta
-
-      - name: Configure aws-okta
-        run: |
-          mkdir -p ~/.aws
-          echo "[default]" > ~/.aws/config
-          echo "aws_access_key_id = fake" >> ~/.aws/config
-          echo "aws_secret_access_key = fake" >> ~/.aws/config
-
-      - name: Set Environment Variables
-        run: |
-          echo "OKTA_ORG=${{ secrets.OKTA_ORG }}" >> $GITHUB_ENV
-          echo "OKTA_AWS_APP_URL=${{ secrets.OKTA_AWS_APP_URL }}" >> $GITHUB_ENV
-          echo "OKTA_USERNAME=${{ secrets.OKTA_USERNAME }}" >> $GITHUB_ENV
-          echo "OKTA_PASSWORD=${{ secrets.OKTA_PASSWORD }}" >> $GITHUB_ENV
-
-      - name: Log in to AWS using Okta SSO
-        run: |
-          export OKTA_ORG=${{ secrets.OKTA_ORG }}
-          export OKTA_AWS_APP_URL=${{ secrets.OKTA_AWS_APP_URL }}
-          export OKTA_USERNAME=${{ secrets.OKTA_USERNAME }}
-          export OKTA_PASSWORD=${{ secrets.OKTA_PASSWORD }}
-          aws-okta add -k
-          aws-okta exec admin-alexharo -- aws sts get-caller-identity
-
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
@@ -125,7 +58,7 @@ jobs:
       - name: Set Branch Name as Workspace
         run: echo "BRANCH_NAME=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
 
-      - name: Create and Select Workspace if Exists
+      - name: Select Workspace
         run: |
           terraform workspace select ${{ env.BRANCH_NAME }}
         working-directory: global/datadog/dashboard/universe
@@ -138,4 +71,40 @@ jobs:
         run: |
           terraform workspace select default
           terraform workspace delete ${{ env.BRANCH_NAME }}
+        working-directory: global/datadog/dashboard/universe
+
+  cleanup-stale:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.6.1
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: global/datadog/dashboard/universe
+
+      - name: List and Destroy Stale Workspaces
+        run: |
+          CURRENT_DATE=$(date +%s)
+          terraform workspace list | grep -v default | while read WORKSPACE; do
+            # Assuming the workspace name includes a timestamp of creation
+            CREATION_DATE=$(echo $WORKSPACE | grep -oE '[0-9]{8}') # Adjust pattern to match your naming convention
+            if [ -n "$CREATION_DATE" ]; then
+              CREATION_DATE=$(date -d "$CREATION_DATE" +%s)
+              AGE=$(( (CURRENT_DATE - CREATION_DATE) / 86400 ))
+              if [ "$AGE" -gt 7 ]; then
+                terraform workspace select $WORKSPACE
+                terraform destroy -auto-approve
+                terraform workspace select default
+                terraform workspace delete $WORKSPACE
+              fi
+            fi
+          done
         working-directory: global/datadog/dashboard/universe
