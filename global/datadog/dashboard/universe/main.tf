@@ -16,5 +16,5 @@ terraform {
 }
 
 resource "null_resource" "noop" {
-  # This is a no-op resource
+  # This is a no-op resources
 }
