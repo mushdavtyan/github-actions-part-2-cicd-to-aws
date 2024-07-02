@@ -103,4 +103,3 @@ jobs:
             echo "Workspace ${WORKSPACE} does not exist."
           fi
         working-directory: global/datadog/dashboard/universe
-        
