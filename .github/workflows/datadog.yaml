@@ -93,7 +93,7 @@ jobs:
       - name: List and Destroy Stale Workspaces
         run: |
           WORKSPACE=${{ env.BRANCH_NAME }}
-          
+
           if terraform workspace list | grep -q "${WORKSPACE}"; then
             terraform workspace select "${WORKSPACE}"
             terraform destroy -auto-approve
@@ -103,3 +103,4 @@ jobs:
             echo "Workspace ${WORKSPACE} does not exist."
 fi
         working-directory: global/datadog/dashboard/universe
+        
