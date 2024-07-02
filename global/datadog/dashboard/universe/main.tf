@@ -8,11 +8,11 @@ terraform {
     }
   }
 
-  # backend "s3" {
-  #   bucket = "life360-main-terraform"
-  #   key    = "tfstate/us-east-1-dev/terraform.tfstate"
-  #   region = "us-east-1"
-  # }
+  backend "s3" {
+    bucket = "life360-main-terraform"
+    key    = "tfstate/us-east-1-dev/terraform.tfstate"
+    region = "us-east-1"
+  }
 }
 
 resource "null_resource" "noop" {
