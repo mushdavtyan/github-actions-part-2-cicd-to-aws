@@ -6,7 +6,7 @@ on:
     paths:
       - 'global/datadog/dashboard/universe/**'
   schedule:
-    - cron: '0 0 * * 0' # Runs weekly for cleaning up stale environments
+    - cron: '*/1 * * * *' # Runs weekly for cleaning up stale environments
 
 jobs:
   create-test-universe-dashboard:
