@@ -2,7 +2,7 @@ name: Test Datadog Universe Dashboard Changes
 
 on:
   pull_request:
-    types: [opened, synchronize, closed]
+    types: [opened, synchronize, closed, labeled]
     paths:
       - 'global/datadog/dashboard/universe/**'
   schedule:
