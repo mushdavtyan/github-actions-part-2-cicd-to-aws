@@ -101,6 +101,6 @@ jobs:
             terraform workspace delete "${WORKSPACE}"
           else
             echo "Workspace ${WORKSPACE} does not exist."
-fi
+          fi
         working-directory: global/datadog/dashboard/universe
         
