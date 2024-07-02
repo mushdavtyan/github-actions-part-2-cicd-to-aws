@@ -72,4 +72,3 @@ jobs:
           terraform workspace select default
           terraform workspace delete ${{ env.BRANCH_NAME }}
         working-directory: global/datadog/dashboard/universe
-        
