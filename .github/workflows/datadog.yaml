@@ -2,11 +2,11 @@ name: Test Datadog Universe Dashboard Changes
 
 on:
   pull_request:
-    types: [opened, synchronize, closed, labeled]
+    types: [opened, synchronize, labeled]
     paths:
       - 'global/datadog/dashboard/universe/**'
   schedule:
-    - cron: '0 0 * * 0' # Runs weekly to clean up stale environments
+    - cron: '0 0 * * 0' # Runs weekly for cleaning up stale environments
 
 jobs:
   create-test-universe-dashboard:
