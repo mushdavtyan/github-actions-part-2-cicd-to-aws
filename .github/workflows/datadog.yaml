@@ -2,7 +2,7 @@ name: Test Datadog Universe Dashboard Changes
 
 on:
   pull_request:
-    types: [opened, synchronize, labeled]
+    types: [opened, synchronize, closed, labeled]
     paths:
       - 'global/datadog/dashboard/universe/**'
   schedule:
@@ -11,7 +11,7 @@ on:
 jobs:
   create-test-universe-dashboard:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' && contains(github.event.pull_request.labels.*.name, 'preview') }}
+    if: ${{ github.event.action != 'closed' && contains(github.event.pull_request.labels.*.name, 'preview') }}
 
     steps:
       - name: Checkout code
