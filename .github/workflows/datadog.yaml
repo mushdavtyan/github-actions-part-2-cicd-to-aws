@@ -92,19 +92,14 @@ jobs:
 
       - name: List and Destroy Stale Workspaces
         run: |
-          CURRENT_DATE=$(date +%s)
-          terraform workspace list | grep -v default | while read WORKSPACE; do
-            # Assuming the workspace name includes a timestamp of creation
-            CREATION_DATE=$(echo $WORKSPACE | grep -oE '[0-9]{8}') # Adjust pattern to match your naming convention
-            if [ -n "$CREATION_DATE" ]; then
-              CREATION_DATE=$(date -d "$CREATION_DATE" +%s)
-              AGE=$(( (CURRENT_DATE - CREATION_DATE) / 86400 ))
-              if [ "$AGE" -gt 7 ]; then
-                terraform workspace select $WORKSPACE
-                terraform destroy -auto-approve
-                terraform workspace select default
-                terraform workspace delete $WORKSPACE
-              fi
-            fi
-          done
+          WORKSPACE=${{ env.BRANCH_NAME }}
+          
+          if terraform workspace list | grep -q "${WORKSPACE}"; then
+            terraform workspace select "${WORKSPACE}"
+            terraform destroy -auto-approve
+            terraform workspace select default
+            terraform workspace delete "${WORKSPACE}"
+          else
+            echo "Workspace ${WORKSPACE} does not exist."
+fi
         working-directory: global/datadog/dashboard/universe
