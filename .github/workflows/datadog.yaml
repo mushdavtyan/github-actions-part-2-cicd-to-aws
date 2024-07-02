@@ -1,15 +1,17 @@
-name: Test Datadog Dashboard Changes
+name: Test Datadog Universe Dashboard Changes
 
 on:
   pull_request:
     types: [opened, synchronize, closed]
     paths:
       - 'global/datadog/dashboard/universe/**'
+  schedule:
+    - cron: '0 0 * * 0' # Runs weekly to clean up stale environments
 
 jobs:
-  test:
+  create-test-universe-dashboard:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    if: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' && contains(github.event.pull_request.labels.*.name, 'preview') }}
 
     steps:
       - name: Checkout code
@@ -18,14 +20,14 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
         with:
-          terraform_version: 1.0.0
+          terraform_version: 1.6.1
 
       - name: Terraform Init
         run: terraform init
         working-directory: global/datadog/dashboard/universe
 
       - name: Set Branch Name as Workspace
-        run: echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+        run: echo "BRANCH_NAME=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
 
       - name: Create and Select Workspace
         run: |
@@ -33,12 +35,12 @@ jobs:
         working-directory: global/datadog/dashboard/universe
 
       - name: Apply Terraform Configuration
-        run: terraform apply -auto-approve
+        run: terraform plan && terraform apply -auto-approve
         working-directory: global/datadog/dashboard/universe
 
   cleanup:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true }}
 
     steps:
       - name: Checkout code
@@ -47,16 +49,21 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
         with:
-          terraform_version: 1.0.0
+          terraform_version: 1.6.1
 
-      - name: Set Branch Name as Workspace
-        run: echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
-
-      - name: Select Workspace
-        run: terraform workspace select ${{ env.BRANCH_NAME }}
+      - name: Terraform Init
+        run: terraform init
         working-directory: global/datadog/dashboard/universe
 
-      - name: Destroy Terraform Resources
+      - name: Set Branch Name as Workspace
+        run: echo "BRANCH_NAME=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+
+      - name: Select Workspace
+        run: |
+          terraform workspace select ${{ env.BRANCH_NAME }}
+        working-directory: global/datadog/dashboard/universe
+
+      - name: Destroy temporary Universe dashboard
         run: terraform destroy -auto-approve
         working-directory: global/datadog/dashboard/universe
 
@@ -64,4 +71,40 @@ jobs:
         run: |
           terraform workspace select default
           terraform workspace delete ${{ env.BRANCH_NAME }}
+        working-directory: global/datadog/dashboard/universe
+
+  cleanup-stale:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.6.1
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: global/datadog/dashboard/universe
+
+      - name: List and Destroy Stale Workspaces
+        run: |
+          CURRENT_DATE=$(date +%s)
+          terraform workspace list | grep -v default | while read WORKSPACE; do
+            # Assuming the workspace name includes a timestamp of creation
+            CREATION_DATE=$(echo $WORKSPACE | grep -oE '[0-9]{8}') # Adjust pattern to match your naming convention
+            if [ -n "$CREATION_DATE" ]; then
+              CREATION_DATE=$(date -d "$CREATION_DATE" +%s)
+              AGE=$(( (CURRENT_DATE - CREATION_DATE) / 86400 ))
+              if [ "$AGE" -gt 7 ]; then
+                terraform workspace select $WORKSPACE
+                terraform destroy -auto-approve
+                terraform workspace select default
+                terraform workspace delete $WORKSPACE
+              fi
+            fi
+          done
         working-directory: global/datadog/dashboard/universe

@@ -4,6 +4,7 @@ resource "null_resource" "package_lambda" {
       ls -la
       pwd
       uname -a
+      ls /
     EOF
   }
 }
