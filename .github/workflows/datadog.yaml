@@ -15,10 +15,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v1
+        uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.1
 
@@ -44,10 +44,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v1
+        uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.1
 
@@ -79,10 +79,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v1
+        uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.1
 
@@ -100,13 +100,16 @@ jobs:
           echo "BRANCH_NAME=${BRANCH_NAME}"
           WORKSPACE=${BRANCH_NAME}
 
-          if terraform workspace list | grep -q "${WORKSPACE}"; then
-            terraform workspace select "${WORKSPACE}"
-            terraform destroy -auto-approve
-            terraform workspace select default
-            terraform workspace delete "${WORKSPACE}"
+          if [ -n "${WORKSPACE}" ]; then
+            if terraform workspace list | grep -q "${WORKSPACE}"; then
+              terraform workspace select "${WORKSPACE}"
+              terraform destroy -auto-approve
+              terraform workspace select default
+              terraform workspace delete "${WORKSPACE}"
+            else
+              echo "Workspace ${WORKSPACE} does not exist."
+            fi
           else
-            echo "Workspace ${WORKSPACE} does not exist."
+            echo "Workspace variable is empty. Exiting."
           fi
         working-directory: global/datadog/dashboard/universe
-
