@@ -92,6 +92,7 @@ jobs:
 
       - name: List and Destroy Stale Workspaces
         run: |
+          echo "BRANCH_NAME=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
           WORKSPACE=${{ env.BRANCH_NAME }}
 
           if terraform workspace list | grep -q "${WORKSPACE}"; then
