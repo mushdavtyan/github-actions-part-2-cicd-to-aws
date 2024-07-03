@@ -113,5 +113,3 @@ jobs:
             echo "Workspace variable is empty. Exiting."
           fi
         working-directory: global/datadog/dashboard/universe
-
-
