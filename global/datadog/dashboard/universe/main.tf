@@ -8,6 +8,7 @@ terraform {
     }
   }
 
+
   # backend "s3" {
   #   bucket = "life360-main-terraform"
   #   key    = "tfstate/us-east-1-dev/terraform.tfstate"
@@ -16,5 +17,5 @@ terraform {
 }
 
 resource "null_resource" "noop" {
-  # This is a no-op resource
+  # This is a no-op resources
 }
