@@ -6,12 +6,12 @@ on:
     paths:
       - 'global/datadog/dashboard/universe/**'
   schedule:
-    - cron: '*/1 * * * *' # Runs weekly for cleaning up stale environments
+    - cron: '0 0 * * 0' # Runs at midnight every Sunday (weekly)
 
 jobs:
   create-test-universe-dashboard:
     runs-on: ubuntu-latest
-    if: ${{ github.event.action != 'closed' && contains(github.event.pull_request.labels.*.name, 'preview') }}
+    if: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' && contains(github.event.pull_request.labels.*.name, 'preview') }}
 
     steps:
       - name: Checkout code
@@ -75,7 +75,7 @@ jobs:
 
   cleanup-stale:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'pull_request' && github.event.action == 'opened') }}
 
     steps:
       - name: Checkout code
@@ -115,4 +115,3 @@ jobs:
             echo "Workspace variable is empty. Exiting."
           fi
         working-directory: global/datadog/dashboard/universe
-
